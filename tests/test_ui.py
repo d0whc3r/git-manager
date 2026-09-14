@@ -1,5 +1,7 @@
 """The Textual app, driven headlessly. Covers what the keys actually do to the repositories."""
 
+import shutil
+
 import pytest
 from textual.widgets import DataTable, RichLog
 
@@ -198,3 +200,19 @@ async def test_split_key_moves_the_log_beside_the_table(app):
         await pilot.pause()
         assert not split.has_class("side")
         assert app.query_one(RichLog).size == under
+
+
+async def test_rescan_forgets_marks_for_repos_that_are_gone(app, tmp_path, upstream):
+    """A mark must not outlive the repository it pointed at."""
+    gone = init_repo(tmp_path / "temporary")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        app.query_one(DataTable).move_cursor(row=app.repos.index(gone))
+        await pilot.press("space")
+        await pilot.pause()
+        assert app.selected == {gone}
+
+        shutil.rmtree(gone)
+        await pilot.press("r")
+        await settle(app, pilot)
+        assert app.selected == set()

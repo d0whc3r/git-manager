@@ -74,3 +74,18 @@ def test_current_branch_when_detached(clone):
     commit(clone, "second")
     sh("git", "checkout", "-q", "--detach", "HEAD~1", cwd=clone)
     assert gm.current_branch(clone) == "HEAD"
+
+
+def test_a_hung_git_command_fails_instead_of_raising(clone):
+    """One slow repository must not take down a whole batch with an exception."""
+    rc, out, err = gm.git(clone, "log", timeout=0.000001)
+    assert (rc, out) == (1, "")
+    assert "timed out" in err
+
+
+def test_a_missing_git_binary_fails_instead_of_raising(clone, monkeypatch):
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "git")
+
+    monkeypatch.setattr("subprocess.run", no_git)
+    assert gm.git(clone, "status") == (1, "", "git not found on PATH")

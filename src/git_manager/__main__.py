@@ -1,6 +1,7 @@
 """Entry point: `git-manager [folder]`, defaulting to the current folder."""
 
 import sys
+from pathlib import Path
 
 from git_manager import __version__
 
@@ -15,18 +16,25 @@ Defaults to the current folder.
 
 
 def main():
+    """Parse the one optional argument and start the UI. Returns the process exit code."""
     arg = sys.argv[1] if len(sys.argv) > 1 else "."
     if arg in ("-h", "--help"):
         print(USAGE, end="")
-        return
+        return 0
     if arg in ("-V", "--version"):
         print(f"git-manager {__version__}")
-        return
+        return 0
+
+    # A typo would otherwise open on an empty table with no hint as to why.
+    if not Path(arg).is_dir():
+        print(f"git-manager: not a folder: {arg}", file=sys.stderr)
+        return 1
 
     from git_manager.ui import GitManager
 
     GitManager(arg).run()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

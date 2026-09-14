@@ -3,7 +3,7 @@ name = "git-manager"
 version = "0.1.0"
 description = "TUI to scan a folder tree for git repositories and sync them with their default branch"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["textual>=0.80"]
 
 [project.scripts]

@@ -57,3 +57,7 @@ def test_falls_back_to_the_local_default_without_a_remote(tmp_path, upstream):
     sh("git", "checkout", "-q", "-b", "feature", cwd=upstream)
     commit(upstream, "work")
     assert gm.status(upstream, tmp_path) == ("upstream", "feature", "main", "-", "0", "1")
+
+
+def test_scan_root_that_is_the_repo_itself_is_shown_as_a_dot(upstream):
+    assert gm.status(upstream, upstream)[0] == "."

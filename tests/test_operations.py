@@ -1,5 +1,9 @@
 """The three mutating actions: update, merge, discard."""
 
+import os
+
+import pytest
+
 from conftest import commit, init_repo, sh
 from git_manager import git as gm
 
@@ -98,3 +102,51 @@ def test_discard_keeps_committed_work(tmp_path, clone):
 
     assert (clone / "kept.txt").read_text() == "keep me\n"
     assert gm.status(clone, tmp_path)[4:] == ("0", "1")
+
+
+def test_update_without_a_remote_says_so(tmp_path):
+    """A local-only repository has nothing to update from — say that, not git's raw complaint."""
+    repo = init_repo(tmp_path / "solo")
+    assert gm.update_default(repo) == (False, "no remote to update from")
+
+
+def test_merge_without_a_remote_uses_the_local_default(tmp_path):
+    """No origin, so the local default branch is what gets merged in."""
+    repo = init_repo(tmp_path / "solo")
+    commit(repo, "theirs", "theirs.txt", "from main\n")
+    sh("git", "checkout", "-q", "-b", "feature", "HEAD~1", cwd=repo)
+
+    ok, _ = gm.merge_default(repo)
+
+    assert ok
+    assert (repo / "theirs.txt").read_text() == "from main\n"
+
+
+def test_merge_reports_a_failing_fetch_instead_of_merging_a_stale_ref(clone):
+    sh("git", "remote", "set-url", "origin", "/nonexistent/repo.git", cwd=clone)
+    ok, msg = gm.merge_default(clone)
+    assert not ok
+    assert msg.startswith("fetch failed:")
+
+
+def test_discard_reports_failure_instead_of_claiming_success(tmp_path):
+    """The destructive action must never log "discarded" when git refused."""
+    ok, msg = gm.discard(tmp_path)
+    assert not ok
+    assert msg.startswith("reset failed:")
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores the permissions this relies on")
+def test_discard_reports_a_clean_that_could_not_finish(clone):
+    """Files survived the clean, so the result must not read as success."""
+    junk = clone / "locked"
+    junk.mkdir()
+    (junk / "file").write_text("x")
+    junk.chmod(0o500)
+    try:
+        ok, msg = gm.discard(clone)
+    finally:
+        junk.chmod(0o700)
+
+    assert not ok
+    assert msg.startswith("clean failed:")

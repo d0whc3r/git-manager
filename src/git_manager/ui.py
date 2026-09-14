@@ -96,7 +96,9 @@ class GitManager(App):
         self.query_one(RichLog).write(text)
 
     def _fill(self, repos, rows):
+        """Replace the table contents. The only place `self.repos` is written."""
         self.repos = repos
+        self.selected &= set(repos)
         t = self.query_one(DataTable)
         row = t.cursor_row
         t.clear()
@@ -120,9 +122,9 @@ class GitManager(App):
     def say(self, text):
         self.call_from_thread(self._write, text)
 
-    def _rescan(self):
-        rows = [gitops.status(r, self.root) for r in self.repos]
-        self.call_from_thread(self._fill, self.repos, rows)
+    def _rescan(self, repos):
+        rows = [gitops.status(r, self.root) for r in repos]
+        self.call_from_thread(self._fill, repos, rows)
 
     @work(thread=True)
     def _apply(self, repos, op, label) -> None:
@@ -131,14 +133,13 @@ class GitManager(App):
             self.say(f"[bold]{repo.name}[/] {label}")
             ok, msg = op(repo)
             self.say(msg if ok else f"[red]{msg}[/]")
-        self._rescan()
+        self._rescan(self.repos)
 
     # --- actions -------------------------------------------------------
     @work(thread=True, exclusive=True)
     def action_refresh(self) -> None:
         self.say(f"scanning {self.root} ...")
-        self.repos = gitops.find_repos(self.root)
-        self._rescan()
+        self._rescan(gitops.find_repos(self.root))
 
     def action_split(self) -> None:
         """Move the log pane between under the table and beside it."""
