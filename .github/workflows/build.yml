@@ -5,6 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One run of this workflow at a time. Cancelling is not an option: the version job
+# publishes the tag and the release notes, and only the release job that follows
+# attaches the binaries, so a killed run leaves a release nobody can download from.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,7 +25,6 @@ jobs:
   version:
     needs: test
     runs-on: ubuntu-latest
-    concurrency: release
     permissions: { contents: write }
     outputs:
       released: ${{ steps.release.outputs.released }}
