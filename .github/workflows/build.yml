@@ -52,6 +52,19 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
       - name: Build the wheel to embed
         run: uv build --wheel
+      # Everything the cross-build downloads or compiles that does not change between
+      # releases: the crates PyApp depends on, their compiled artifacts, and the ziglang
+      # wheel. The key is deliberately exact with no restore-keys, so the entry is written
+      # once and then only read — PyApp is pinned, so a stale-but-matching cache is the
+      # point. Editing either file rebuilds it from scratch.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/pip
+            pyapp/target
+          key: pyapp-${{ runner.os }}-${{ hashFiles('scripts/build-binaries.sh', '.github/workflows/build.yml') }}
       - name: Install the cross toolchain
         run: |
           pip install --break-system-packages cargo-zigbuild ziglang
