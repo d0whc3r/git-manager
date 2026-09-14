@@ -65,11 +65,29 @@ ignore = [
   "ISC001",   # conflicts with the formatter
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["git_manager", "conftest"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-# The self-check is a script of asserts that shells out to git and reports on stdout.
-"tests/**" = ["S101", "S603", "S607", "T201"]
+# Tests assert and shell out to git on purpose, and a pytest fixture is "unused" by design.
+"tests/**" = ["S101", "S603", "S607", "ARG001"]
 # A CLI entry point prints to stdout.
 "src/git_manager/__main__.py" = ["T201"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--cov --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/git_manager"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 95
+exclude_also = [
+  "if __name__ == .__main__.:",
+]

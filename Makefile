@@ -1,7 +1,7 @@
 NAME := git-manager
 DIR  ?= .
 
-.PHONY: help sync run lint fmt test build install uninstall upgrade clean
+.PHONY: help sync run lint fmt test cov build install uninstall upgrade clean
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*##' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -20,8 +20,11 @@ fmt: ## Apply lint fixes and format the code
 	uv run ruff check --fix .
 	uv run ruff format .
 
-test: ## Run the self-check
-	uv run python tests/test_git.py
+test: ## Run the test suite with coverage
+	uv run pytest
+
+cov: ## Write an HTML coverage report to htmlcov/
+	uv run pytest --cov-report=html
 
 build: ## Build a standalone binary into dist/
 	uv run pyinstaller --onefile --name $(NAME) --collect-all textual \
@@ -37,4 +40,5 @@ upgrade: ## Upgrade locked dependencies to their latest allowed versions
 	uv lock --upgrade
 
 clean: ## Remove build artifacts
-	rm -rf build dist *.spec src/git_manager/__pycache__ tests/__pycache__
+	rm -rf build dist *.spec htmlcov .coverage .pytest_cache \
+		src/git_manager/__pycache__ tests/__pycache__

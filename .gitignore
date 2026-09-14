@@ -3,12 +3,19 @@ build/
 dist/
 *.spec
 
+# Tool caches
+.ruff_cache/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-.ruff_cache/
 
 # Editors / OS
 .idea/
