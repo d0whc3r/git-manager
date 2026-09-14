@@ -19,7 +19,18 @@ It lands in `~/.local/bin`, which has to be on your `PATH`. Set `BIN_DIR` to cha
 curl -fsSL https://raw.githubusercontent.com/d0whc3r/git-manager/main/install.sh | BIN_DIR=/usr/local/bin sh
 ```
 
-Re-run the same command to upgrade.
+Once it is installed, it upgrades itself:
+
+```sh
+git-manager --upgrade
+```
+
+That checks the latest release, and when it is newer, downloads it over the binary you are
+running — wherever you put it. It is a no-op when you are already on the latest version.
+Re-running the install command above does the same thing unconditionally.
+
+Self-upgrade needs a release binary. A `uv tool` install is upgraded with `uv tool upgrade
+git-manager`, and on Windows you download the new `.exe` by hand.
 
 The files are attached to each [release](../../../releases) if you prefer to download by hand:
 
@@ -84,6 +95,7 @@ usage: git-manager [folder]
 
   -h, --help     show this message
   -V, --version  show the version
+  --upgrade      replace the installed binary with the latest release
 ```
 
 With no argument it scans the current folder.

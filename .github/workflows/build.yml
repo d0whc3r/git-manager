@@ -70,6 +70,9 @@ jobs:
       PYAPP_PYTHON_VERSION: "3.12"
       # Ship CPython inside the executable instead of fetching it on first run.
       PYAPP_DISTRIBUTION_EMBED: "1"
+      # Put the launcher's own path in $PYAPP instead of a bare "1", which is how
+      # `git-manager upgrade` knows which file to replace.
+      PYAPP_PASS_LOCATION: "1"
     steps:
       - uses: actions/checkout@v4
         with:

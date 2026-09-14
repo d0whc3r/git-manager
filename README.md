@@ -29,6 +29,7 @@ Windows without `uv`: download the `.exe` from the [latest release](../../releas
 ```sh
 git-manager            # scan the current folder
 git-manager ~/projects # scan another folder
+git-manager --upgrade  # replace the binary with the latest release
 ```
 
 `git` must be on your `PATH`. Everything else is bundled.

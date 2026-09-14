@@ -65,3 +65,29 @@ def test_an_unknown_flag_is_rejected(monkeypatch, capsys, launched):
     assert main() == 1
     assert "not a folder" in capsys.readouterr().err
     assert launched == {}
+
+
+def test_upgrade_reports_success_on_stdout(monkeypatch, capsys, launched):
+    monkeypatch.setattr(sys, "argv", ["git-manager", "--upgrade"])
+    monkeypatch.setattr("git_manager.__main__.upgrade", lambda _: (True, "upgraded 1 to 2"))
+    assert main() == 0
+    assert capsys.readouterr().out.strip() == "git-manager: upgraded 1 to 2"
+    assert launched == {}
+
+
+def test_upgrade_reports_failure_on_stderr(monkeypatch, capsys, launched):
+    monkeypatch.setattr(sys, "argv", ["git-manager", "--upgrade"])
+    monkeypatch.setattr("git_manager.__main__.upgrade", lambda _: (False, "no network"))
+    assert main() == 1
+    assert capsys.readouterr().err.strip() == "git-manager: no network"
+    assert launched == {}
+
+
+def test_a_folder_named_upgrade_is_still_scanned(tmp_path, monkeypatch, launched):
+    """Upgrading is a flag, not a subcommand, so it cannot shadow a folder name."""
+    folder = tmp_path / "upgrade"
+    folder.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["git-manager", "upgrade"])
+    assert main() == 0
+    assert launched == {"root": "upgrade", "ran": True}

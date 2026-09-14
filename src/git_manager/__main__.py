@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from git_manager import __version__
+from git_manager.upgrade import upgrade
 
 USAGE = """usage: git-manager [folder]
 
@@ -12,6 +13,7 @@ Defaults to the current folder.
 
   -h, --help     show this message
   -V, --version  show the version
+  --upgrade      replace the installed binary with the latest release
 """
 
 
@@ -24,6 +26,10 @@ def main():
     if arg in ("-V", "--version"):
         print(f"git-manager {__version__}")
         return 0
+    if arg == "--upgrade":
+        ok, msg = upgrade(__version__)
+        print(f"git-manager: {msg}", file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     # A typo would otherwise open on an empty table with no hint as to why.
     if not Path(arg).is_dir():
