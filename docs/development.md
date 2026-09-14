@@ -37,10 +37,12 @@ never calls `subprocess` itself.
 
 Every mutating operation — `update_default`, `merge_default`, `discard` — lives in `git.py` and
 returns `(ok, message)`. The UI just renders the message, which is why all three actions share
-one `_run(repo, op, label)` worker.
+one worker, `_apply(repos, op, label)`: it loops, logs each result, and rescans once at the end.
+The `(op, label)` pair behind each key is a module constant — `UPDATE`, `MERGE`, `DISCARD` —
+so an action body is a single `self._apply(...)` call.
 
 Adding an action means writing one function in `git.py` that returns `(ok, message)`, then a
-binding and a two-line worker in `ui.py`.
+constant, a binding and a two-line action in `ui.py`.
 
 ## Threads
 

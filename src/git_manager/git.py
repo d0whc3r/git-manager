@@ -57,6 +57,11 @@ def find_repos(root, max_depth=MAX_DEPTH):
     return found
 
 
+def has_ref(repo, ref):
+    """True when `ref` resolves in `repo`. Accepts any revision git understands."""
+    return git(repo, "rev-parse", "--verify", "--quiet", ref)[0] == 0
+
+
 def current_branch(repo):
     """Name of the checked-out branch, or "?" when detached or unreadable."""
     return git(repo, "rev-parse", "--abbrev-ref", "HEAD")[1] or "?"
@@ -71,7 +76,7 @@ def default_branch(repo):
     if rc == 0 and out:
         return out.rsplit("/", 1)[-1]
     for b in ("main", "master"):
-        if git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}")[0] == 0:
+        if has_ref(repo, f"refs/heads/{b}"):
             return b
     return ""
 
@@ -88,7 +93,7 @@ def status(repo, root):
     behind = ahead = "-"
     if default:
         ref = f"origin/{default}"
-        if git(repo, "rev-parse", "--verify", "--quiet", f"refs/remotes/{ref}")[0] != 0:
+        if not has_ref(repo, f"refs/remotes/{ref}"):
             ref = default
         rc, out, _ = git(repo, "rev-list", "--left-right", "--count", f"{ref}...HEAD")
         if rc == 0 and len(out.split()) == 2:
