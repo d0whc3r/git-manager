@@ -57,7 +57,7 @@ branch was found.
 
 ## What gets scanned
 
-- Up to 3 levels deep from the folder you start in.
+- Up to 6 levels deep from the folder you start in.
 - Descent stops at the first repository found, so submodules are not listed separately.
 - These are skipped: `node_modules`, `venv`, `.venv`, `target`, `vendor`, `Library`, and any
   folder starting with a dot.

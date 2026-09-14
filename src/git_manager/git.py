@@ -10,7 +10,7 @@ from pathlib import Path
 SKIP = {"node_modules", "venv", ".venv", "target", "vendor", "Library"}
 
 #: How many levels below the scan root to look for repositories.
-MAX_DEPTH = 3
+MAX_DEPTH = 6
 
 
 def git(repo, *args, timeout=120):
