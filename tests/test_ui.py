@@ -216,3 +216,19 @@ async def test_rescan_forgets_marks_for_repos_that_are_gone(app, tmp_path, upstr
         await pilot.press("r")
         await settle(app, pilot)
         assert app.selected == set()
+
+
+async def test_select_all_and_invert(app):
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("a")
+        await pilot.pause()
+        assert marks_of(app) == ["*", "*"]
+
+        await pilot.press("i")
+        await pilot.pause()
+        assert marks_of(app) == [" ", " "]
+
+        await pilot.press("space", "i")  # mark first row, then flip both
+        await pilot.pause()
+        assert marks_of(app) == [" ", "*"]

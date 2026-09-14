@@ -10,6 +10,8 @@ actions apply to the repository under the cursor, uppercase ones to a whole set.
 | `r` | Rescan the folder tree |
 | `s` | Move the log pane between under the table and beside it |
 | `space` | Mark or unmark the repository under the cursor, then step down |
+| `a` | Mark every repository |
+| `i` | Invert the marks: unmarked rows become marked, marked ones become unmarked |
 | `u` | Fetch, then update the default branch (fast-forward only) |
 | `U` | Same, for every marked repository — or all of them when none are marked |
 | `m` | Merge `origin/<default>` into the current branch |
@@ -23,10 +25,12 @@ By default the log pane sits under the table and takes 12 rows. `s` moves it to 
 the table instead, 40 columns wide, which gives the repository list the full height of the
 screen — worth it once the list is longer than fits.
 
-### `space` — mark repositories for a batch action
+### `space`, `a`, `i` — mark repositories for a batch action
 
 Marked rows carry a `*` in the first column. `U` and `D` then work through the marked set in
 table order, logging each repository as it goes, and refresh the table once at the end.
+
+`a` marks every repository at once, `i` flips every mark — so `a` then `i` clears the set.
 
 ### `u` — update the default branch
 

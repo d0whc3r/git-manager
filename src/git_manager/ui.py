@@ -66,6 +66,8 @@ class GitManager(App):
         ("r", "refresh", "Rescan"),
         ("s", "split", "Split horizontal/vertical"),
         ("space", "select", "Select"),
+        ("a", "select_all", "Select all"),
+        ("i", "invert_selection", "Invert selection"),
         ("u", "update", "Update default"),
         ("U", "update_many", "Update selected/all"),
         ("m", "merge", "Merge default->current"),
@@ -118,6 +120,12 @@ class GitManager(App):
         """Repositories marked with `space`, in table order."""
         return [r for r in self.repos if r in self.selected]
 
+    def _remark(self):
+        """Redraw the marker column from `self.selected`."""
+        t = self.query_one(DataTable)
+        for i, repo in enumerate(self.repos):
+            t.update_cell_at((i, 0), MARK if repo in self.selected else " ")
+
     # --- worker-thread helpers -----------------------------------------
     def say(self, text):
         self.call_from_thread(self._write, text)
@@ -154,6 +162,14 @@ class GitManager(App):
         t = self.query_one(DataTable)
         t.update_cell_at((t.cursor_row, 0), MARK if repo in self.selected else " ")
         t.action_cursor_down()
+
+    def action_select_all(self) -> None:
+        self.selected = set(self.repos)
+        self._remark()
+
+    def action_invert_selection(self) -> None:
+        self.selected = set(self.repos) - self.selected
+        self._remark()
 
     def action_update(self) -> None:
         if repo := self._current():

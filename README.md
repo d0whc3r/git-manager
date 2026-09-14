@@ -30,6 +30,8 @@ Full options in [docs/installation.md](docs/installation.md).
 | `r` | Rescan the folder tree |
 | `s` | Move the log pane between under the table and beside it |
 | `space` | Mark or unmark the repository under the cursor |
+| `a` | Mark every repository |
+| `i` | Invert the marks |
 | `u` | Fetch, then update the default branch (fast-forward only) |
 | `U` | Update every marked repository — or all of them when none are marked |
 | `m` | Merge `origin/<default>` into the current branch |
