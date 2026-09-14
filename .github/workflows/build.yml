@@ -9,7 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -23,7 +23,7 @@ jobs:
       tag: ${{ steps.next.outputs.new_tag }}
       version: ${{ steps.next.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       # Reads the Conventional Commits since the last tag: feat -> minor, fix -> patch,
       # BREAKING CHANGE -> major. default_bump false means anything else (docs, chore, ci)
@@ -74,7 +74,7 @@ jobs:
       # `git-manager upgrade` knows which file to replace.
       PYAPP_PASS_LOCATION: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
       - uses: astral-sh/setup-uv@v5
