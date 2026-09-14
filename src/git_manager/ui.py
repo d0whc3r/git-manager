@@ -20,10 +20,16 @@ DISCARD_WARNING = (
     "Discard ALL local changes in {repo}?\nreset --hard + clean -fd. Cannot be undone."
 )
 
+RESET_WARNING = (
+    "Discard ALL local changes in {repo} and check out the default branch?"
+    "\nreset --hard + clean -fd + checkout. Cannot be undone."
+)
+
 #: What each action key does: the git operation, and the label it logs per repository.
 UPDATE = (gitops.update_default, "update default")
 MERGE = (gitops.merge_default, "merge default -> current")
 DISCARD = (gitops.discard, "discard")
+RESET = (gitops.reset_to_default, "discard + checkout default")
 
 
 class Confirm(ModalScreen[bool]):
@@ -73,6 +79,8 @@ class GitManager(App):
         ("m", "merge", "Merge default->current"),
         ("d", "discard", "Discard changes"),
         ("D", "discard_many", "Discard selected"),
+        ("c", "checkout_default", "Discard + checkout default"),
+        ("C", "checkout_default_many", "Discard + checkout default, selected"),
         ("q", "quit", "Quit"),
     ]
 
@@ -186,19 +194,31 @@ class GitManager(App):
 
     def action_discard(self) -> None:
         if repo := self._current():
-            self._confirm_discard([repo], repo.name)
+            self._confirm([repo], repo.name, DISCARD, DISCARD_WARNING)
 
     def action_discard_many(self) -> None:
         """Discard in every marked repository. Marking is required — never a silent select-all."""
+        self._confirm_many(DISCARD, DISCARD_WARNING)
+
+    def action_checkout_default(self) -> None:
+        if repo := self._current():
+            self._confirm([repo], repo.name, RESET, RESET_WARNING)
+
+    def action_checkout_default_many(self) -> None:
+        """Same, for every marked repository. Marking is required, as for any destructive key."""
+        self._confirm_many(RESET, RESET_WARNING)
+
+    def _confirm_many(self, action, warning):
+        """Run a destructive action on the marked set. No mark never means "every repository"."""
         repos = self._marked()
         if not repos:
             self._write("[yellow]nothing selected — mark rows with space[/]")
             return
-        self._confirm_discard(repos, f"{len(repos)} selected repos")
+        self._confirm(repos, f"{len(repos)} selected repos", action, warning)
 
-    def _confirm_discard(self, repos, what):
-        """Ask once for the whole set; discard only if the answer is yes."""
+    def _confirm(self, repos, what, action, warning):
+        """Ask once for the whole set; run `action` only if the answer is yes."""
         self.push_screen(
-            Confirm(DISCARD_WARNING.format(repo=what)),
-            lambda ok: self._apply(repos, *DISCARD) if ok else None,
+            Confirm(warning.format(repo=what)),
+            lambda ok: self._apply(repos, *action) if ok else None,
         )

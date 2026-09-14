@@ -17,6 +17,8 @@ actions apply to the repository under the cursor, uppercase ones to a whole set.
 | `m` | Merge `origin/<default>` into the current branch |
 | `d` | Discard local changes (`reset --hard` + `clean -fd`) — asks for confirmation |
 | `D` | Same, for every marked repository — one confirmation for the whole set |
+| `c` | Discard local changes, then check out the default branch — asks for confirmation |
+| `C` | Same, for every marked repository — one confirmation for the whole set |
 | `q` | Quit |
 
 ### `s` — split the screen the other way
@@ -59,6 +61,22 @@ Runs `git reset --hard` followed by `git clean -fd`.
 `D` does the same across every marked repository. Unlike `U`, it never falls back to "all":
 with nothing marked it refuses and says so in the log, so a stray keypress cannot wipe the
 whole tree.
+
+### `c` — go back to the default branch
+
+> **Warning:** this permanently deletes every uncommitted change and every untracked file in
+> that repository before switching branches. There is no undo. A confirmation dialog appears
+> first; `Esc` cancels it.
+
+Runs the same `reset --hard` + `clean -fd` as `d`, then `git checkout <default>`. This is the
+"put this repository back the way it was" key: it leaves a finished or abandoned feature branch
+without asking you to deal with the leftovers first.
+
+The discard happens before the checkout, so a repository that refuses to clean stays on its
+current branch and says why in the log. A repository with no default branch is skipped.
+
+`C` does the same across every marked repository, and like `D` it refuses when nothing is
+marked.
 
 ## Columns
 

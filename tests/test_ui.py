@@ -115,7 +115,7 @@ async def test_actions_do_nothing_when_there_is_no_repo(tmp_path):
     async with empty.run_test() as pilot:
         await settle(empty, pilot)
         assert rows_of(empty) == []
-        for key in ("space", "u", "U", "m", "d", "D", "s"):
+        for key in ("space", "a", "i", "u", "U", "m", "d", "D", "c", "C", "s"):
             await pilot.press(key)
             await settle(empty, pilot)
         assert empty.repos == []
@@ -232,3 +232,56 @@ async def test_select_all_and_invert(app):
         await pilot.press("space", "i")  # mark first row, then flip both
         await pilot.pause()
         assert marks_of(app) == [" ", "*"]
+
+
+async def test_checkout_default_asks_first_then_switches_branch(app, clone):
+    sh("git", "checkout", "-q", "-b", "feature", cwd=clone)
+    (clone / "junk.txt").write_text("x")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("c")
+        await pilot.pause()
+        assert isinstance(app.screen, Confirm)
+
+        await pilot.click("#yes")
+        await settle(app, pilot)
+        assert not (clone / "junk.txt").exists()
+        assert gm.current_branch(clone) == "main"
+
+
+async def test_checkout_default_cancelled_leaves_the_branch_alone(app, clone):
+    sh("git", "checkout", "-q", "-b", "feature", cwd=clone)
+    (clone / "precious.txt").write_text("do not delete\n")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("c")
+        await pilot.pause()
+        await pilot.press("escape")
+        await settle(app, pilot)
+        assert gm.current_branch(clone) == "feature"
+        assert (clone / "precious.txt").read_text() == "do not delete\n"
+
+
+async def test_checkout_default_selected_spares_the_unmarked_repos(app, clone, upstream):
+    sh("git", "checkout", "-q", "-b", "feature", cwd=clone)
+    sh("git", "checkout", "-q", "-b", "feature", cwd=upstream)
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("space")  # marks the clone, cursor moves to upstream
+        await pilot.press("C")
+        await pilot.pause()
+        await pilot.click("#yes")
+        await settle(app, pilot)
+        assert gm.current_branch(clone) == "main"
+        assert gm.current_branch(upstream) == "feature"
+
+
+async def test_checkout_default_selected_does_nothing_without_a_mark(app, clone):
+    """No mark must never mean "every repository" for a destructive action."""
+    (clone / "precious.txt").write_text("do not delete\n")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("C")
+        await settle(app, pilot)
+        assert not isinstance(app.screen, Confirm)
+        assert (clone / "precious.txt").read_text() == "do not delete\n"

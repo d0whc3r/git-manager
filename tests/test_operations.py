@@ -1,4 +1,4 @@
-"""The three mutating actions: update, merge, discard."""
+"""The mutating actions: update, merge, discard, reset to default."""
 
 import os
 
@@ -150,3 +150,40 @@ def test_discard_reports_a_clean_that_could_not_finish(clone):
 
     assert not ok
     assert msg.startswith("clean failed:")
+
+
+def test_reset_to_default_drops_changes_and_moves_off_the_feature_branch(clone):
+    sh("git", "checkout", "-q", "-b", "feature", cwd=clone)
+    (clone / "junk.txt").write_text("x")
+
+    ok, _ = gm.reset_to_default(clone)
+
+    assert ok
+    assert not (clone / "junk.txt").exists()
+    assert gm.current_branch(clone) == "main"
+
+
+def test_reset_to_default_needs_a_default_branch(tmp_path):
+    repo = init_repo(tmp_path / "odd", branch="develop")
+    (repo / "junk.txt").write_text("x")
+
+    assert gm.reset_to_default(repo) == (False, "no default branch")
+    assert (repo / "junk.txt").exists(), "nothing may be discarded when there is nowhere to go"
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores the permissions this relies on")
+def test_reset_to_default_stays_put_when_the_discard_failed(clone):
+    """A failed discard must abort before the checkout, not check out over surviving files."""
+    sh("git", "checkout", "-q", "-b", "feature", cwd=clone)
+    junk = clone / "locked"
+    junk.mkdir()
+    (junk / "file").write_text("x")
+    junk.chmod(0o500)
+    try:
+        ok, msg = gm.reset_to_default(clone)
+    finally:
+        junk.chmod(0o700)
+
+    assert not ok
+    assert msg.startswith("clean failed:")
+    assert gm.current_branch(clone) == "feature"

@@ -37,6 +37,8 @@ Full options in [docs/installation.md](docs/installation.md).
 | `m` | Merge `origin/<default>` into the current branch |
 | `d` | Discard local changes — asks for confirmation, cannot be undone |
 | `D` | Discard in every marked repository — one confirmation, cannot be undone |
+| `c` | Discard local changes, then check out the default branch — cannot be undone |
+| `C` | Same, for every marked repository — one confirmation, cannot be undone |
 | `q` | Quit |
 
 Lowercase keys act on the repository under the cursor, uppercase ones on the marked set. See [docs/usage.md](docs/usage.md) for what

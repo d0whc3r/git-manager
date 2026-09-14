@@ -175,3 +175,17 @@ def discard(repo):
     if rc:
         return False, f"clean failed: {err}"
     return True, "discarded"
+
+
+def reset_to_default(repo):
+    """Discard every local change, then check out the default branch. Destructive, not undoable."""
+    default = default_branch(repo)
+    if not default:
+        return False, "no default branch"
+
+    ok, msg = discard(repo)
+    if not ok:
+        return False, msg
+
+    rc, out, err = git(repo, "checkout", default)
+    return rc == 0, out or err or f"on {default}"
