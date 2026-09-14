@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "tui-design": {
+      "source": "gfargo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/terminal/skills/tui-design/SKILL.md",
+      "computedHash": "8f26d4897417a5e582786cf9f190fce95d26d7dd6423b3a5c7e319be897183d8"
+    },
+    "vhs-cli-demos": {
+      "source": "gfargo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/terminal/skills/vhs-cli-demos/SKILL.md",
+      "computedHash": "50891d2e2cf268e31f7aadd0bb7b5d1b031ca5450982bac126269cafaee833ae"
+    }
+  }
+}
