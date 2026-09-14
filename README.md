@@ -12,14 +12,26 @@ default branch (`main`/`master`). One screen, one keypress per action.
 
 ## Install
 
-Download a binary from the [latest release](../../releases), or run from source:
+A binary, no Python needed — Linux and macOS:
 
 ```sh
-uv run git-manager            # scan the current folder
-uv run git-manager ~/projects # scan another folder
+curl -fsSL https://raw.githubusercontent.com/d0whc3r/git-manager/main/install.sh | sh
 ```
 
-`git` must be on your `PATH`. Everything else is bundled or resolved by `uv`.
+Or with [uv](https://docs.astral.sh/uv/), which also covers Windows:
+
+```sh
+uv tool install git+https://github.com/d0whc3r/git-manager
+```
+
+Windows without `uv`: download the `.exe` from the [latest release](../../releases).
+
+```sh
+git-manager            # scan the current folder
+git-manager ~/projects # scan another folder
+```
+
+`git` must be on your `PATH`. Everything else is bundled.
 
 Full options in [docs/installation.md](docs/installation.md).
 

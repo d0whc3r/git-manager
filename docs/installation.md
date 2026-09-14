@@ -4,7 +4,24 @@
 
 ## A release binary
 
-Prebuilt, self-contained, no Python needed. Attached to each [release](../../../releases):
+Prebuilt, self-contained, no Python needed.
+
+On Linux and macOS, one command picks the right file, drops it on your `PATH`, makes it
+executable and clears the macOS quarantine flag:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/d0whc3r/git-manager/main/install.sh | sh
+```
+
+It lands in `~/.local/bin`, which has to be on your `PATH`. Set `BIN_DIR` to change that:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/d0whc3r/git-manager/main/install.sh | BIN_DIR=/usr/local/bin sh
+```
+
+Re-run the same command to upgrade.
+
+The files are attached to each [release](../../../releases) if you prefer to download by hand:
 
 | File | Platform |
 |------|----------|
@@ -34,15 +51,31 @@ uv run git-manager            # scan the current folder
 uv run git-manager ~/projects # scan another folder
 ```
 
-## From source, onto your PATH
+## With uv, onto your PATH
+
+No clone, and it works on Windows too:
+
+```sh
+uv tool install git+https://github.com/d0whc3r/git-manager
+uv tool upgrade git-manager
+uv tool uninstall git-manager
+```
+
+To run it once without installing anything:
+
+```sh
+uvx --from git+https://github.com/d0whc3r/git-manager git-manager
+```
+
+From a working copy instead:
 
 ```sh
 make install    # uv tool install --force .
 make uninstall
 ```
 
-This installs from the working copy into its own isolated environment, so it touches neither
-`.venv` nor any other project.
+Either way it lands in its own isolated environment, so it touches neither `.venv` nor any
+other project.
 
 ## Command line
 

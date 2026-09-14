@@ -5,9 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  ENTRY: src/git_manager/__main__.py
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -52,42 +49,64 @@ jobs:
           git tag "$TAG"
           git push origin HEAD:main "$TAG"
 
-  build:
-    needs: version
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest,  name: git-manager-linux-x86_64 }
-          - { os: windows-latest, name: git-manager-windows-x86_64.exe }
-          - { os: macos-latest,   name: git-manager-macos-arm64 }
-          - { os: macos-13,       name: git-manager-macos-x86_64 }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.version.outputs.tag || github.sha }}
-      - uses: astral-sh/setup-uv@v5
-      - name: Build
-        shell: bash
-        run: uv run pyinstaller --onefile --name git-manager --collect-all textual --paths src "$ENTRY"
-      - name: Rename
-        shell: bash
-        run: mv dist/git-manager* "dist/${{ matrix.name }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: dist/${{ matrix.name }}
-
+  # Every binary is cross-compiled on Linux. PyApp wraps the wheel and an embedded CPython
+  # in a Rust launcher, and cargo-zigbuild uses Zig as the cross-linker, so one runner
+  # produces the macOS and Windows executables too. Zig ad-hoc signs the Mach-O output,
+  # which is what lets an unsigned arm64 binary start at all on Apple Silicon.
+  #
+  # One job builds all four and publishes them itself. A matrix would need upload-artifact
+  # to hand the files to a release job, and those artifacts cost storage we do not have.
+  # Without a tag there is nothing to publish, so the build is skipped entirely.
   release:
-    needs: [version, build]
+    needs: version
     if: needs.version.outputs.tag
     runs-on: ubuntu-latest
     permissions: { contents: write }
+    env:
+      # v0.29.0 is pinned so a PyApp release cannot change what we ship without a commit.
+      PYAPP_VERSION: 0.29.0
+      PYAPP_PROJECT_NAME: git-manager
+      PYAPP_EXEC_MODULE: git_manager
+      PYAPP_PYTHON_VERSION: "3.12"
+      # Ship CPython inside the executable instead of fetching it on first run.
+      PYAPP_DISTRIBUTION_EMBED: "1"
     steps:
-      - uses: actions/download-artifact@v4
-        with: { path: dist, merge-multiple: true }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: astral-sh/setup-uv@v5
+      - name: Build the wheel to embed
+        run: uv build --wheel
+      - name: Install the cross toolchain
+        run: |
+          pip install --break-system-packages cargo-zigbuild ziglang
+          rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-gnu \
+            aarch64-apple-darwin x86_64-apple-darwin
+      - name: Build every target
+        run: |
+          curl -fsSL "https://github.com/ofek/pyapp/releases/download/v$PYAPP_VERSION/source.tar.gz" \
+            -o pyapp.tar.gz
+          mkdir pyapp && tar -xzf pyapp.tar.gz -C pyapp --strip-components=1
+          # PyApp only accepts an embedded wheel as a path relative to its own directory.
+          cp dist/*.whl pyapp/
+          cd pyapp
+          export PYAPP_PROJECT_PATH="$(ls ./*.whl)"
+          export PYAPP_PROJECT_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' ../pyproject.toml | head -1)"
+          # Windows cross-links against the gnu ABI: zig cannot compile zstd-sys for msvc.
+          for entry in \
+            "x86_64-unknown-linux-gnu:pyapp:git-manager-linux-x86_64" \
+            "x86_64-pc-windows-gnu:pyapp.exe:git-manager-windows-x86_64.exe" \
+            "aarch64-apple-darwin:pyapp:git-manager-macos-arm64" \
+            "x86_64-apple-darwin:pyapp:git-manager-macos-x86_64"
+          do
+            target="${entry%%:*}"; rest="${entry#*:}"
+            cargo zigbuild --release --target "$target"
+            mv "target/$target/release/${rest%%:*}" "../dist/${rest#*:}"
+          done
+      # The runner can only execute the one target that matches it.
+      - name: Smoke test
+        run: ./dist/git-manager-linux-x86_64 --version
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.tag }}
-          files: dist/*
+          files: dist/git-manager-*
