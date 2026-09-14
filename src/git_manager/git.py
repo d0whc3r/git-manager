@@ -29,8 +29,8 @@ def git(repo, *args, timeout=120):
 def find_repos(root, max_depth=MAX_DEPTH):
     """Return every git repository under `root`, nearest first.
 
-    Descent stops at the first repository found on a branch of the tree, so submodules are
-    reported as part of their parent rather than as separate entries.
+    Descent continues past a repository, so submodules and other nested checkouts are listed
+    alongside their parent.
     """
     root = Path(root)
     found = []
@@ -38,7 +38,6 @@ def find_repos(root, max_depth=MAX_DEPTH):
     def walk(d, depth):
         if (d / ".git").exists():
             found.append(d)
-            return
         if depth >= max_depth:
             return
         try:

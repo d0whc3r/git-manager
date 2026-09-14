@@ -26,20 +26,28 @@ PyInstaller does not cross-compile. The binary targets the OS and architecture y
 
 ## Cutting a release
 
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
+Releases are automatic. Push to `main` and `.github/workflows/build.yml` reads the
+[Conventional Commits](https://www.conventionalcommits.org/) since the last tag:
 
-`.github/workflows/build.yml` then runs the lint and format checks and the self-check, builds
-on four runners (Linux x86_64, Windows x86_64, macOS arm64, macOS x86_64), and attaches the
-four binaries to a GitHub release.
+| Commit prefix                       | Bump  |
+| ----------------------------------- | ----- |
+| `fix:`                              | patch |
+| `feat:`                             | minor |
+| `BREAKING CHANGE:` / `feat!:`       | major |
+| anything else (`docs:`, `chore:` …) | none  |
 
-Bump `version` in `pyproject.toml` and `__version__` in `src/git_manager/__init__.py` to match
-the tag before pushing it.
+When there is something to release the pipeline writes the new version into
+`pyproject.toml` and `src/git_manager/__init__.py`, commits it as
+`chore(release): X.Y.Z [skip ci]`, tags `vX.Y.Z`, builds on four runners (Linux x86_64,
+Windows x86_64, macOS arm64, macOS x86_64), and attaches the four binaries to a GitHub
+release. Do not bump the version by hand — the pipeline owns it.
 
-`workflow_dispatch` is also enabled, so you can build the four binaries as artifacts from the
-Actions tab without tagging anything.
+`[skip ci]` on the release commit is what stops the push from re-triggering the workflow.
+
+When no commit warrants a bump the binaries are still built as artifacts, but no tag and no
+release are created.
+
+`workflow_dispatch` is also enabled, so you can build the four binaries from the Actions tab.
 
 ## Signing
 

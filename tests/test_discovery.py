@@ -8,10 +8,10 @@ def test_finds_nested_repos_sorted(tmp_path, upstream, clone):
     assert gm.find_repos(tmp_path) == [clone, upstream]
 
 
-def test_stops_at_the_first_repo_on_a_branch(tmp_path, upstream):
-    """A repository inside a repository is not listed separately, so submodules stay hidden."""
-    init_repo(upstream / "vendored")
-    assert gm.find_repos(tmp_path) == [upstream]
+def test_lists_repos_nested_inside_a_repo(tmp_path, upstream):
+    """A repository inside a repository gets its own row, so submodules are listed too."""
+    nested = init_repo(upstream / "vendored")
+    assert gm.find_repos(tmp_path) == [upstream, nested]
 
 
 def test_skips_noise_folders_and_dotfolders(tmp_path):

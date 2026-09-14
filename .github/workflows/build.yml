@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -18,8 +18,42 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest
 
-  build:
+  version:
     needs: test
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    outputs:
+      tag: ${{ steps.next.outputs.new_tag }}
+      version: ${{ steps.next.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      # Reads the Conventional Commits since the last tag: feat -> minor, fix -> patch,
+      # BREAKING CHANGE -> major. default_bump false means anything else (docs, chore, ci)
+      # leaves the outputs empty and no release is cut.
+      - id: next
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: false
+          dry_run: true
+      - name: Bump, commit and tag
+        if: steps.next.outputs.new_version
+        env:
+          VERSION: ${{ steps.next.outputs.new_version }}
+          TAG: ${{ steps.next.outputs.new_tag }}
+        run: |
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" src/git_manager/__init__.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # [skip ci] keeps this push from re-triggering the workflow.
+          git commit -am "chore(release): $VERSION [skip ci]"
+          git tag "$TAG"
+          git push origin HEAD:main "$TAG"
+
+  build:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +65,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag || github.sha }}
       - uses: astral-sh/setup-uv@v5
       - name: Build
         shell: bash
@@ -44,12 +80,14 @@ jobs:
           path: dist/${{ matrix.name }}
 
   release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, build]
+    if: needs.version.outputs.tag
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
       - uses: actions/download-artifact@v4
         with: { path: dist, merge-multiple: true }
       - uses: softprops/action-gh-release@v2
-        with: { files: dist/* }
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          files: dist/*
