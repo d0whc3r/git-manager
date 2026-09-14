@@ -5,17 +5,25 @@ from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import Vertical
+from textual.containers import Container, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Label, RichLog
 
 from . import git as gitops
 
-COLUMNS = ("repo", "branch", "default", "state", "behind", "ahead")
+COLUMNS = ("", "repo", "branch", "default", "state", "behind", "ahead")
+
+#: Marker drawn in the first column of a selected row.
+MARK = "*"
 
 DISCARD_WARNING = (
     "Discard ALL local changes in {repo}?\nreset --hard + clean -fd. Cannot be undone."
 )
+
+#: What each action key does: the git operation, and the label it logs per repository.
+UPDATE = (gitops.update_default, "update default")
+MERGE = (gitops.merge_default, "merge default -> current")
+DISCARD = (gitops.discard, "discard")
 
 
 class Confirm(ModalScreen[bool]):
@@ -43,12 +51,26 @@ class Confirm(ModalScreen[bool]):
 
 class GitManager(App):
     TITLE = "git-manager"
-    CSS = "DataTable { height: 1fr; } RichLog { height: 12; border-top: solid $accent; }"
+
+    # Two layouts for the same two panes. Without `.side` the log sits under the table; with it
+    # the log moves to the right, giving the repository list the full height of the screen.
+    CSS = """
+    #split { layout: vertical; }
+    #split DataTable { width: 1fr; height: 1fr; }
+    #split RichLog { width: 1fr; height: 12; border-top: solid $accent; }
+
+    #split.side { layout: horizontal; }
+    #split.side RichLog { width: 40; height: 1fr; border-top: none; border-left: solid $accent; }
+    """
     BINDINGS: ClassVar[list] = [
         ("r", "refresh", "Rescan"),
+        ("s", "split", "Split horizontal/vertical"),
+        ("space", "select", "Select"),
         ("u", "update", "Update default"),
+        ("U", "update_many", "Update selected/all"),
         ("m", "merge", "Merge default->current"),
         ("d", "discard", "Discard changes"),
+        ("D", "discard_many", "Discard selected"),
         ("q", "quit", "Quit"),
     ]
 
@@ -56,11 +78,13 @@ class GitManager(App):
         super().__init__()
         self.root = Path(root).resolve()
         self.repos = []
+        self.selected = set()
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield DataTable(cursor_type="row")
-        yield RichLog(markup=True, wrap=True)
+        with Container(id="split"):
+            yield DataTable(cursor_type="row")
+            yield RichLog(markup=True, wrap=True)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -76,8 +100,8 @@ class GitManager(App):
         t = self.query_one(DataTable)
         row = t.cursor_row
         t.clear()
-        for r in rows:
-            t.add_row(*r)
+        for repo, r in zip(repos, rows, strict=True):
+            t.add_row(MARK if repo in self.selected else " ", *r)
         if rows:
             t.move_cursor(row=min(row, len(rows) - 1))
         self._write(f"[green]{len(rows)} repos[/]")
@@ -88,6 +112,10 @@ class GitManager(App):
             return None
         return self.repos[self.query_one(DataTable).cursor_row]
 
+    def _marked(self):
+        """Repositories marked with `space`, in table order."""
+        return [r for r in self.repos if r in self.selected]
+
     # --- worker-thread helpers -----------------------------------------
     def say(self, text):
         self.call_from_thread(self._write, text)
@@ -96,10 +124,13 @@ class GitManager(App):
         rows = [gitops.status(r, self.root) for r in self.repos]
         self.call_from_thread(self._fill, self.repos, rows)
 
-    def _run(self, repo, op, label):
-        self.say(f"[bold]{repo.name}[/] {label}")
-        ok, msg = op(repo)
-        self.say(msg if ok else f"[red]{msg}[/]")
+    @work(thread=True)
+    def _apply(self, repos, op, label) -> None:
+        """Run `op` on each repository, log every result, then refresh the table once."""
+        for repo in repos:
+            self.say(f"[bold]{repo.name}[/] {label}")
+            ok, msg = op(repo)
+            self.say(msg if ok else f"[red]{msg}[/]")
         self._rescan()
 
     # --- actions -------------------------------------------------------
@@ -109,33 +140,48 @@ class GitManager(App):
         self.repos = gitops.find_repos(self.root)
         self._rescan()
 
-    def action_update(self) -> None:
-        repo = self._current()
-        if repo:
-            self._update(repo)
+    def action_split(self) -> None:
+        """Move the log pane between under the table and beside it."""
+        self.query_one("#split").toggle_class("side")
 
-    @work(thread=True)
-    def _update(self, repo) -> None:
-        self._run(repo, gitops.update_default, "update default")
-
-    def action_merge(self) -> None:
-        repo = self._current()
-        if repo:
-            self._merge(repo)
-
-    @work(thread=True)
-    def _merge(self, repo) -> None:
-        self._run(repo, gitops.merge_default, "merge default -> current")
-
-    def action_discard(self) -> None:
+    def action_select(self) -> None:
+        """Toggle the mark on the row under the cursor, then step down."""
         repo = self._current()
         if not repo:
             return
-        self.push_screen(
-            Confirm(DISCARD_WARNING.format(repo=repo.name)),
-            lambda ok: self._discard(repo) if ok else None,
-        )
+        self.selected ^= {repo}
+        t = self.query_one(DataTable)
+        t.update_cell_at((t.cursor_row, 0), MARK if repo in self.selected else " ")
+        t.action_cursor_down()
 
-    @work(thread=True)
-    def _discard(self, repo) -> None:
-        self._run(repo, gitops.discard, "discard")
+    def action_update(self) -> None:
+        if repo := self._current():
+            self._apply([repo], *UPDATE)
+
+    def action_update_many(self) -> None:
+        """Update every marked repository, or all of them when nothing is marked."""
+        if repos := self._marked() or self.repos:
+            self._apply(repos, *UPDATE)
+
+    def action_merge(self) -> None:
+        if repo := self._current():
+            self._apply([repo], *MERGE)
+
+    def action_discard(self) -> None:
+        if repo := self._current():
+            self._confirm_discard([repo], repo.name)
+
+    def action_discard_many(self) -> None:
+        """Discard in every marked repository. Marking is required — never a silent select-all."""
+        repos = self._marked()
+        if not repos:
+            self._write("[yellow]nothing selected — mark rows with space[/]")
+            return
+        self._confirm_discard(repos, f"{len(repos)} selected repos")
+
+    def _confirm_discard(self, repos, what):
+        """Ask once for the whole set; discard only if the answer is yes."""
+        self.push_screen(
+            Confirm(DISCARD_WARNING.format(repo=what)),
+            lambda ok: self._apply(repos, *DISCARD) if ok else None,
+        )

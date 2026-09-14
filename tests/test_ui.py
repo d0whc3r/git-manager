@@ -16,8 +16,15 @@ async def settle(app, pilot):
 
 
 def rows_of(app):
+    """Table rows without the selection marker."""
     table = app.query_one(DataTable)
-    return [tuple(table.get_row_at(i)) for i in range(table.row_count)]
+    return [tuple(table.get_row_at(i))[1:] for i in range(table.row_count)]
+
+
+def marks_of(app):
+    """The selection marker of every row, in table order."""
+    table = app.query_one(DataTable)
+    return [table.get_row_at(i)[0] for i in range(table.row_count)]
 
 
 @pytest.fixture
@@ -106,7 +113,7 @@ async def test_actions_do_nothing_when_there_is_no_repo(tmp_path):
     async with empty.run_test() as pilot:
         await settle(empty, pilot)
         assert rows_of(empty) == []
-        for key in ("u", "m", "d"):
+        for key in ("space", "u", "U", "m", "d", "D", "s"):
             await pilot.press(key)
             await settle(empty, pilot)
         assert empty.repos == []
@@ -120,3 +127,74 @@ async def test_failures_are_reported_in_the_log(app, clone):
         await settle(app, pilot)
         written = app.query_one(RichLog).lines
         assert written
+
+
+async def test_space_marks_the_row_and_moves_on(app):
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("space")
+        await pilot.pause()
+        assert marks_of(app) == ["*", " "]
+        assert app.query_one(DataTable).cursor_row == 1
+
+        await pilot.press("up", "space")
+        await pilot.pause()
+        assert marks_of(app) == [" ", " "]
+
+
+async def test_update_all_key_updates_every_repo(app, upstream, clone, tmp_path):
+    """`U` with nothing marked touches all of them, not only the row under the cursor."""
+    commit(upstream, "theirs")
+    second = init_repo(tmp_path / "second")
+    sh("git", "clone", "-q", str(second), str(tmp_path / "second-clone"), cwd=tmp_path)
+    commit(second, "more")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("U")
+        await settle(app, pilot)
+        assert gm.status(clone, tmp_path)[4] == "0"
+        assert gm.status(tmp_path / "second-clone", tmp_path)[4] == "0"
+
+
+async def test_discard_selected_spares_the_unmarked_repos(app, clone, upstream):
+    (clone / "junk.txt").write_text("x")
+    (upstream / "precious.txt").write_text("do not delete\n")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("space")  # marks the clone, cursor moves to upstream
+        await pilot.press("D")
+        await pilot.pause()
+        await pilot.click("#yes")
+        await settle(app, pilot)
+        assert not (clone / "junk.txt").exists()
+        assert (upstream / "precious.txt").read_text() == "do not delete\n"
+
+
+async def test_discard_selected_does_nothing_without_a_mark(app, clone):
+    """No mark must never mean "every repository" for a destructive action."""
+    (clone / "precious.txt").write_text("do not delete\n")
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        await pilot.press("D")
+        await settle(app, pilot)
+        assert not isinstance(app.screen, Confirm)
+        assert (clone / "precious.txt").read_text() == "do not delete\n"
+
+
+async def test_split_key_moves_the_log_beside_the_table(app):
+    async with app.run_test() as pilot:
+        await settle(app, pilot)
+        split = app.query_one("#split")
+        under = app.query_one(RichLog).size
+
+        await pilot.press("s")
+        await pilot.pause()
+        assert split.has_class("side")
+        beside = app.query_one(RichLog).size
+        assert beside.height > under.height
+        assert beside.width < under.width
+
+        await pilot.press("s")
+        await pilot.pause()
+        assert not split.has_class("side")
+        assert app.query_one(RichLog).size == under

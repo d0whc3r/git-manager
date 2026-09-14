@@ -1,17 +1,32 @@
 # Usage
 
-The screen is a table of repositories over a log pane. Move with the arrow keys; every action
-applies to the repository under the cursor.
+The screen is a table of repositories over a log pane. Move with the arrow keys; lowercase
+actions apply to the repository under the cursor, uppercase ones to a whole set.
 
 ## Keys
 
 | Key | Action |
 |-----|--------|
 | `r` | Rescan the folder tree |
+| `s` | Move the log pane between under the table and beside it |
+| `space` | Mark or unmark the repository under the cursor, then step down |
 | `u` | Fetch, then update the default branch (fast-forward only) |
+| `U` | Same, for every marked repository — or all of them when none are marked |
 | `m` | Merge `origin/<default>` into the current branch |
 | `d` | Discard local changes (`reset --hard` + `clean -fd`) — asks for confirmation |
+| `D` | Same, for every marked repository — one confirmation for the whole set |
 | `q` | Quit |
+
+### `s` — split the screen the other way
+
+By default the log pane sits under the table and takes 12 rows. `s` moves it to the right of
+the table instead, 40 columns wide, which gives the repository list the full height of the
+screen — worth it once the list is longer than fits.
+
+### `space` — mark repositories for a batch action
+
+Marked rows carry a `*` in the first column. `U` and `D` then work through the marked set in
+table order, logging each repository as it goes, and refresh the table once at the end.
 
 ### `u` — update the default branch
 
@@ -36,6 +51,10 @@ try to resolve them.
 > that repository. There is no undo. A confirmation dialog appears first; `Esc` cancels it.
 
 Runs `git reset --hard` followed by `git clean -fd`.
+
+`D` does the same across every marked repository. Unlike `U`, it never falls back to "all":
+with nothing marked it refuses and says so in the log, so a stray keypress cannot wipe the
+whole tree.
 
 ## Columns
 

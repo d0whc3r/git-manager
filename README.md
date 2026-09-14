@@ -4,10 +4,10 @@ A terminal UI that scans a folder tree for git repositories and keeps them in sy
 default branch (`main`/`master`). One screen, one keypress per action.
 
 ```
-repo                  branch        default  state  behind  ahead
-api                   feat/search   main     dirty  12      3
-docs                  main          main     -      0       0
-infra/terraform       master        master   -      4       0
+  repo                  branch        default  state  behind  ahead
+* api                   feat/search   main     dirty  12      3
+  docs                  main          main     -      0       0
+* infra/terraform       master        master   -      4       0
 ```
 
 ## Install
@@ -28,12 +28,16 @@ Full options in [docs/installation.md](docs/installation.md).
 | Key | Action |
 |-----|--------|
 | `r` | Rescan the folder tree |
+| `s` | Move the log pane between under the table and beside it |
+| `space` | Mark or unmark the repository under the cursor |
 | `u` | Fetch, then update the default branch (fast-forward only) |
+| `U` | Update every marked repository — or all of them when none are marked |
 | `m` | Merge `origin/<default>` into the current branch |
 | `d` | Discard local changes — asks for confirmation, cannot be undone |
+| `D` | Discard in every marked repository — one confirmation, cannot be undone |
 | `q` | Quit |
 
-Actions apply to the repository under the cursor. See [docs/usage.md](docs/usage.md) for what
+Lowercase keys act on the repository under the cursor, uppercase ones on the marked set. See [docs/usage.md](docs/usage.md) for what
 each column means and how the scan decides what to list.
 
 ## Docs
