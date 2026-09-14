@@ -9,8 +9,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest
@@ -18,66 +18,38 @@ jobs:
   version:
     needs: test
     runs-on: ubuntu-latest
+    concurrency: release
     permissions: { contents: write }
     outputs:
-      tag: ${{ steps.next.outputs.new_tag }}
-      version: ${{ steps.next.outputs.new_version }}
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      # Reads the Conventional Commits since the last tag: feat -> minor, fix -> patch,
-      # BREAKING CHANGE -> major. default_bump false means anything else (docs, chore, ci)
-      # leaves the outputs empty and no release is cut.
-      - id: next
-        uses: mathieudutour/github-tag-action@v6.2
+      # Reads the Conventional Commits since the last tag, bumps the version in pyproject.toml
+      # and __init__.py, writes CHANGELOG.md, then commits, tags and opens the GitHub release.
+      # The rules live in [tool.semantic_release] in pyproject.toml.
+      - id: release
+        uses: python-semantic-release/python-semantic-release@v10.6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: false
-          dry_run: true
-      - name: Bump, commit and tag
-        if: steps.next.outputs.new_version
-        env:
-          VERSION: ${{ steps.next.outputs.new_version }}
-          TAG: ${{ steps.next.outputs.new_tag }}
-        run: |
-          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
-          sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" src/git_manager/__init__.py
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # [skip ci] keeps this push from re-triggering the workflow.
-          git commit -am "chore(release): $VERSION [skip ci]"
-          git tag "$TAG"
-          git push origin HEAD:main "$TAG"
 
-  # Every binary is cross-compiled on Linux. PyApp wraps the wheel and an embedded CPython
-  # in a Rust launcher, and cargo-zigbuild uses Zig as the cross-linker, so one runner
-  # produces the macOS and Windows executables too. Zig ad-hoc signs the Mach-O output,
-  # which is what lets an unsigned arm64 binary start at all on Apple Silicon.
+  # Every binary is cross-compiled on Linux by scripts/build-binaries.sh, which carries the
+  # PyApp and cargo-zigbuild details.
   #
   # One job builds all four and publishes them itself. A matrix would need upload-artifact
   # to hand the files to a release job, and those artifacts cost storage we do not have.
-  # Without a tag there is nothing to publish, so the build is skipped entirely.
+  # Without a release there is nothing to publish, so the build is skipped entirely.
   release:
     needs: version
-    if: needs.version.outputs.tag
+    if: needs.version.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions: { contents: write }
-    env:
-      # v0.29.0 is pinned so a PyApp release cannot change what we ship without a commit.
-      PYAPP_VERSION: 0.29.0
-      PYAPP_PROJECT_NAME: git-manager
-      PYAPP_EXEC_MODULE: git_manager
-      PYAPP_PYTHON_VERSION: "3.12"
-      # Ship CPython inside the executable instead of fetching it on first run.
-      PYAPP_DISTRIBUTION_EMBED: "1"
-      # Put the launcher's own path in $PYAPP instead of a bare "1", which is how
-      # `git-manager upgrade` knows which file to replace.
-      PYAPP_PASS_LOCATION: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tag }}
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10.1.0
       - name: Build the wheel to embed
         run: uv build --wheel
       - name: Install the cross toolchain
@@ -86,30 +58,13 @@ jobs:
           rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-gnu \
             aarch64-apple-darwin x86_64-apple-darwin
       - name: Build every target
-        run: |
-          curl -fsSL "https://github.com/ofek/pyapp/releases/download/v$PYAPP_VERSION/source.tar.gz" \
-            -o pyapp.tar.gz
-          mkdir pyapp && tar -xzf pyapp.tar.gz -C pyapp --strip-components=1
-          # PyApp only accepts an embedded wheel as a path relative to its own directory.
-          cp dist/*.whl pyapp/
-          cd pyapp
-          export PYAPP_PROJECT_PATH="$(ls ./*.whl)"
-          export PYAPP_PROJECT_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' ../pyproject.toml | head -1)"
-          # Windows cross-links against the gnu ABI: zig cannot compile zstd-sys for msvc.
-          for entry in \
-            "x86_64-unknown-linux-gnu:pyapp:git-manager-linux-x86_64" \
-            "x86_64-pc-windows-gnu:pyapp.exe:git-manager-windows-x86_64.exe" \
-            "aarch64-apple-darwin:pyapp:git-manager-macos-arm64" \
-            "x86_64-apple-darwin:pyapp:git-manager-macos-x86_64"
-          do
-            target="${entry%%:*}"; rest="${entry#*:}"
-            cargo zigbuild --release --target "$target"
-            mv "target/$target/release/${rest%%:*}" "../dist/${rest#*:}"
-          done
+        run: ./scripts/build-binaries.sh
       # The runner can only execute the one target that matches it.
       - name: Smoke test
         run: ./dist/git-manager-linux-x86_64 --version
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          files: dist/git-manager-*
+      # python-semantic-release already published the release notes; only the binaries,
+      # which it cannot build, are still missing from the release.
+      - name: Attach the binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.version.outputs.tag }}" dist/git-manager-*

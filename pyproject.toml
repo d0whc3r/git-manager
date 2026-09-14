@@ -25,6 +25,20 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/git_manager"]
 
+[tool.semantic_release]
+# Conventional Commits since the last tag decide the bump: feat -> minor, fix -> patch,
+# BREAKING CHANGE -> major. Anything else (docs, chore, ci) bumps nothing and cuts no release.
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/git_manager/__init__.py:__version__"]
+# [skip ci] keeps the release commit from re-triggering the workflow.
+commit_message = "chore(release): v{version} [skip ci]"
+# Pre-1.0: keep releasing 0.x instead of jumping to 1.0.0 on the first tag or a breaking change.
+allow_zero_version = true
+major_on_zero = false
+
+[tool.semantic_release.branches.main]
+match = "^main$"
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
