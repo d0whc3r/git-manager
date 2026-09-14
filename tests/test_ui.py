@@ -7,7 +7,7 @@ from textual.widgets import DataTable, RichLog
 
 from conftest import commit, init_repo, sh
 from git_manager import git as gm
-from git_manager.ui import Confirm, GitManager
+from git_manager.ui import HELP, Confirm, GitManager
 
 
 async def settle(app, pilot):
@@ -285,3 +285,9 @@ async def test_checkout_default_selected_does_nothing_without_a_mark(app, clone)
         await settle(app, pilot)
         assert not isinstance(app.screen, Confirm)
         assert (clone / "precious.txt").read_text() == "do not delete\n"
+
+
+def test_help_bar_shows_every_key():
+    """The help bar is written by hand — it must not drift away from BINDINGS."""
+    shown = {key for keys, _ in HELP for key in keys.split("/")}
+    assert shown == {binding[0] for binding in GitManager.BINDINGS}

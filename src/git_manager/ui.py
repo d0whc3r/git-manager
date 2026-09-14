@@ -7,7 +7,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Container, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Footer, Header, Label, RichLog
+from textual.widgets import Button, DataTable, Header, Label, RichLog, Static
 
 from . import git as gitops
 
@@ -30,6 +30,22 @@ UPDATE = (gitops.update_default, "update default")
 MERGE = (gitops.merge_default, "merge default -> current")
 DISCARD = (gitops.discard, "discard")
 RESET = (gitops.reset_to_default, "discard + checkout default")
+
+#: The help bar: the keys as they are shown, grouped, and what each group does. Textual's
+#: `Footer` keeps every binding on one line and scrolls sideways when they do not fit; this
+#: wraps instead, so a narrow terminal still shows all of them. A test keeps it in step with
+#: BINDINGS.
+HELP = (
+    ("r", "rescan"),
+    ("s", "layout"),
+    ("space/a/i", "mark row/all/invert"),
+    ("u/U", "update default"),
+    ("m", "merge default"),
+    ("d/D", "discard"),
+    ("c/C", "discard + checkout default"),
+    ("q", "quit"),
+)
+HELP_TEXT = "  ".join(f"[b]{keys}[/b] {what}" for keys, what in HELP)
 
 
 class Confirm(ModalScreen[bool]):
@@ -67,6 +83,8 @@ class GitManager(App):
 
     #split.side { layout: horizontal; }
     #split.side RichLog { width: 40; height: 1fr; border-top: none; border-left: solid $accent; }
+
+    #help { dock: bottom; height: auto; padding: 0 1; background: $panel; }
     """
     BINDINGS: ClassVar[list] = [
         ("r", "refresh", "Rescan"),
@@ -95,7 +113,7 @@ class GitManager(App):
         with Container(id="split"):
             yield DataTable(cursor_type="row")
             yield RichLog(markup=True, wrap=True)
-        yield Footer()
+        yield Static(HELP_TEXT, id="help")
 
     def on_mount(self) -> None:
         self.query_one(DataTable).add_columns(*COLUMNS)
