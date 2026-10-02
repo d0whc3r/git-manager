@@ -36,7 +36,7 @@ jobs:
       # and __init__.py, writes CHANGELOG.md, then commits, tags and opens the GitHub release.
       # The rules live in [tool.semantic_release] in pyproject.toml.
       - id: release
-        uses: python-semantic-release/python-semantic-release@v10.6.2
+        uses: python-semantic-release/python-semantic-release@v10.7.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
